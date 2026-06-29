@@ -90,6 +90,9 @@
   .surow .meta .en{font-weight:600}
   .surow .meta .sub{font-size:12px; color:var(--muted)}
   .surow .arname{font-size:20px}
+  .surow.on{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+  .surow .chk{flex:0 0 auto; width:24px; height:24px; border-radius:7px; border:1.5px solid var(--line); display:grid; place-items:center; color:transparent; font-size:14px; font-weight:700}
+  .surow.on .chk{background:var(--accent); border-color:transparent; color:var(--accent-ink)}
   .surow input{display:none}
   /* ===== Quiz ===== */
   .qhead{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px}
@@ -300,11 +303,15 @@
       if(f){ const hay=(s.en+" "+s.tr+" "+s.num).toLowerCase(); if(hay.indexOf(f)<0) return; }
       const row=document.createElement("div");
       row.className="surow"+(set.has(s.num)?" on":"");
-      row.innerHTML=`<div class="num">${s.num}</div>
+      row.innerHTML=`<div class="chk">✓</div><div class="num">${s.num}</div>
         <div class="meta"><div class="en">${s.en} <span class="muted" style="font-weight:400">· ${s.tr}</span></div>
         <div class="sub">${s.count} аятов · ${s.type==="Meccan"?"мекканская":"мединская"}</div></div>
         <div class="arname ar">${s.name.replace(/^سُورَةُ\s*/,"")}</div>`;
-      row.onclick=()=>{ if(set.has(s.num)) S.active=S.active.filter(x=>x!==s.num); else S.active.push(s.num); save(); row.classList.toggle("on"); updateSelCount(); refreshStats(); };
+      row.onclick=()=>{
+        const on=S.active.includes(s.num);                 // актуальное состояние, не снимок
+        S.active = on ? S.active.filter(x=>x!==s.num) : S.active.concat(s.num);
+        save(); row.classList.toggle("on", !on); updateSelCount(); refreshStats();
+      };
       box.appendChild(row);
     });
   }
@@ -508,18 +515,32 @@
 
   // ---------- скачивание аудио суры для офлайна ----------
   $("dlSurah").innerHTML=SUR.map(s=>`<option value="${s.num}">${s.num}. ${s.en} (${s.count})</option>`).join("");
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  async function grabAudio(g){            // одна попытка скачать аят, с 3 ретраями
+    for(let a=0;a<3;a++){
+      try{ await fetch(audioUrl(g),{mode:"no-cors"}); return true; }
+      catch(e){ await sleep(400*(a+1)); }
+    }
+    return false;
+  }
   async function downloadSurahAudio(num){
     const s=byNum[num], gs=s.ayahs.map(a=>a.g);
     const btn=$("btnDownloadAudio"), fill=$("dlFill"), st=$("dlStatus");
     btn.disabled=true; fill.style.width="0"; st.textContent=`Скачиваю ${s.en}…`;
-    let done=0, fail=0; const B=5;
+    let done=0; const failed=[]; const B=3;     // мягче к CDN: по 3 за раз
     for(let i=0;i<gs.length;i+=B){
-      await Promise.all(gs.slice(i,i+B).map(g=> fetch(audioUrl(g),{mode:"no-cors"}).then(()=>{done++;}).catch(()=>{fail++;})));
-      fill.style.width=Math.round(100*(done+fail)/gs.length)+"%";
-      st.textContent=`${done+fail} / ${gs.length}`;
+      const chunk=gs.slice(i,i+B);
+      const res=await Promise.all(chunk.map(grabAudio));
+      res.forEach((ok,j)=>{ ok?done++:failed.push(chunk[j]); });
+      const processed=Math.min(gs.length,i+B);
+      fill.style.width=Math.round(100*processed/gs.length)+"%";
+      st.textContent=`${processed} / ${gs.length}`;
+      await sleep(120);
     }
-    btn.disabled=false;
-    st.textContent = fail ? `Готово, но были ошибки (${fail}) — проверь интернет.` : `Готово ✓ ${s.en} доступна офлайн.`;
+    fill.style.width="100%"; btn.disabled=false;
+    st.textContent = failed.length===0
+      ? `Готово ✓ ${s.en} доступна офлайн (${gs.length} аятов).`
+      : `Скачано ${done} из ${gs.length}. Не удалось ${failed.length} — нажми «Скачать» ещё раз при стабильном интернете.`;
   }
   $("btnDownloadAudio").onclick=()=> downloadSurahAudio(+$("dlSurah").value);
 
