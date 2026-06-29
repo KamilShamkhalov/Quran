@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Заучивание Корана — тренажёр</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Коран">
+<style>
+  :root{
+    --bg:#f5f3ec; --card:#fffdf7; --ink:#1f2a26; --muted:#6b7a72;
+    --line:#e2ddd0; --accent:#0f766e; --accent-ink:#fff;
+    --good:#15803d; --good-bg:#dcfce7; --bad:#b91c1c; --bad-bg:#fee2e2;
+    --gold:#b8860b; --shadow:0 1px 3px rgba(0,0,0,.06),0 6px 24px rgba(0,0,0,.05);
+    --radius:16px;
+  }
+  [data-theme="dark"]{
+    --bg:#10110f; --card:#1a1c19; --ink:#e9ece6; --muted:#9aa69e;
+    --line:#2b2e29; --accent:#2dd4bf; --accent-ink:#06201c;
+    --good:#4ade80; --good-bg:#0f2a18; --bad:#f87171; --bad-bg:#2a1212;
+    --gold:#d9a93a; --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 24px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    font-size:16px; line-height:1.5; -webkit-text-size-adjust:100%;
+  }
+  .ar{
+    font-family:"SF Arabic","Geeza Pro","Scheherazade New","Traditional Arabic","Amiri",
+                "Noto Naskh Arabic",serif;
+    direction:rtl; line-height:2; font-feature-settings:"liga" 1;
+  }
+  .wrap{max-width:780px; margin:0 auto; padding:16px 16px 96px}
+  header.top{
+    display:flex; align-items:center; gap:12px; padding:14px 16px;
+    position:sticky; top:0; z-index:10; background:var(--bg);
+    border-bottom:1px solid var(--line);
+  }
+  header.top .logo{font-size:22px}
+  header.top h1{font-size:17px; margin:0; font-weight:700; letter-spacing:.2px}
+  header.top .sp{flex:1}
+  .iconbtn{
+    border:1px solid var(--line); background:var(--card); color:var(--ink);
+    width:40px; height:40px; border-radius:12px; cursor:pointer; font-size:18px;
+    display:grid; place-items:center;
+  }
+  .iconbtn:active{transform:scale(.96)}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:18px; margin:14px 0;
+  }
+  .btn{
+    appearance:none; border:1px solid var(--line); background:var(--card); color:var(--ink);
+    padding:11px 16px; border-radius:12px; cursor:pointer; font-size:15px; font-weight:600;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+  .btn.block{display:block; width:100%; text-align:center; padding:15px}
+  .btn.sm{padding:7px 12px; font-size:13px; font-weight:600}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .muted{color:var(--muted)}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+    background:var(--bg); border:1px solid var(--line); font-size:13px; color:var(--muted);
+  }
+  /* ===== Home ===== */
+  .stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:6px}
+  .stat{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center}
+  .stat b{display:block; font-size:24px; line-height:1.1}
+  .stat span{font-size:12px; color:var(--muted)}
+  .progressbar{height:10px; background:var(--bg); border:1px solid var(--line); border-radius:999px; overflow:hidden; margin-top:10px}
+  .progressbar>i{display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); width:0}
+  .quickrow{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0}
+  .search{width:100%; padding:11px 14px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:15px}
+  .surahlist{max-height:320px; overflow:auto; margin-top:10px; border:1px solid var(--line); border-radius:12px}
+  .surow{display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer}
+  .surow:last-child{border-bottom:none}
+  .surow:hover{background:var(--bg)}
+  .surow .num{width:30px; height:30px; border-radius:8px; background:var(--bg); border:1px solid var(--line); display:grid; place-items:center; font-size:12px; font-weight:700; color:var(--muted); flex:0 0 auto}
+  .surow.on .num{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+  .surow .meta{flex:1; min-width:0}
+  .surow .meta .en{font-weight:600}
+  .surow .meta .sub{font-size:12px; color:var(--muted)}
+  .surow .arname{font-size:20px}
+  .surow input{display:none}
+  /* ===== Quiz ===== */
+  .qhead{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px}
+  .prompt{font-size:30px; text-align:center; padding:18px 6px}
+  .prompt .seg{margin:8px 0}
+  .askline{text-align:center; color:var(--muted); font-size:14px; margin:6px 0 2px}
+  .opts{display:flex; flex-direction:column; gap:10px; margin-top:8px}
+  .opt{
+    display:flex; gap:12px; align-items:center; text-align:right;
+    border:1px solid var(--line); background:var(--card); border-radius:14px;
+    padding:12px 14px; cursor:pointer; transition:background .12s,border-color .12s;
+  }
+  .opt:hover{border-color:var(--accent)}
+  .opt .key{flex:0 0 auto; width:26px; height:26px; border-radius:8px; background:var(--bg); border:1px solid var(--line); display:grid; place-items:center; font-size:13px; font-weight:700; color:var(--muted)}
+  .opt .txt{flex:1; font-size:23px}
+  .opt.correct{background:var(--good-bg); border-color:var(--good)}
+  .opt.correct .key{background:var(--good); color:#fff; border-color:transparent}
+  .opt.wrong{background:var(--bad-bg); border-color:var(--bad)}
+  .opt.wrong .key{background:var(--bad); color:#fff; border-color:transparent}
+  .opt.disabled{cursor:default}
+  .feedback{margin-top:14px; text-align:center; min-height:26px; font-weight:600}
+  .feedback.ok{color:var(--good)} .feedback.no{color:var(--bad)}
+  .ref{text-align:center; color:var(--muted); font-size:14px; margin-top:4px}
+  .bottombar{position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:linear-gradient(transparent,var(--bg) 28%); display:flex; gap:10px; max-width:780px; margin:0 auto}
+  .hidden{display:none!important}
+  .audio-btn{border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:999px; padding:7px 14px; cursor:pointer; font-size:14px; font-weight:600}
+  .toast{position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:999px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:50}
+  .toast.show{opacity:.95}
+  label.check{display:flex; align-items:center; gap:10px; padding:8px 0; cursor:pointer}
+  label.check input{width:18px; height:18px; accent-color:var(--accent)}
+  select,.seg-select{padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:14px; font-weight:600}
+  h2{font-size:16px; margin:2px 0 10px} h3{font-size:14px; margin:18px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="logo">📖</span>
+  <h1>Заучивание Корана</h1>
+  <span class="sp"></span>
+  <button class="iconbtn hidden" id="btnInstall" title="Установить приложение">⤓</button>
+  <button class="iconbtn" id="btnTheme" title="Тема">🌙</button>
+  <button class="iconbtn hidden" id="btnHome" title="На главную">⌂</button>
+</header>
+
+<div class="wrap">
+
+  <!-- ===================== ГЛАВНАЯ ===================== -->
+  <section id="home">
+    <div class="card">
+      <h2>Твой прогресс</h2>
+      <div class="stat-grid">
+        <div class="stat"><b id="stLearned">0</b><span>выучено аятов</span></div>
+        <div class="stat"><b id="stActive">0</b><span>в наборе</span></div>
+        <div class="stat"><b id="stAcc">—</b><span>точность</span></div>
+      </div>
+      <div class="progressbar"><i id="progFill"></i></div>
+      <div class="row" style="justify-content:space-between;margin-top:10px">
+        <span class="muted" id="stSeenLine">Ещё не было ответов</span>
+        <button class="btn sm" id="btnReset">Сбросить прогресс</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Настройки тренировки</h2>
+      <div style="margin-bottom:14px">
+        <div class="muted" style="font-size:13px">Режим тренировки</div>
+        <select id="selMode" style="width:100%;margin-top:4px">
+          <option value="continue">Продолжи аят</option>
+          <option value="before">Найди начало (что идёт перед)</option>
+          <option value="word">Пропущенное слово</option>
+          <option value="surah">Угадай суру</option>
+        </select>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="muted" style="font-size:13px">Сколько аятов показывать</div>
+          <select id="selPrompt">
+            <option value="1">1 аят</option>
+            <option value="2">2 аята</option>
+          </select>
+        </div>
+        <div>
+          <div class="muted" style="font-size:13px">Вариантов ответа</div>
+          <select id="selOpts">
+            <option value="4">4</option>
+            <option value="6">6</option>
+            <option value="8">8</option>
+            <option value="10" selected>10</option>
+          </select>
+        </div>
+        <div>
+          <div class="muted" style="font-size:13px">Аудио</div>
+          <select id="selAudio">
+            <option value="off">не играть</option>
+            <option value="manual" selected>по кнопке</option>
+            <option value="auto">авто</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Какие суры тренируем</h2>
+      <div class="quickrow">
+        <button class="btn sm" data-quick="all">Весь Коран</button>
+        <button class="btn sm" data-quick="amma">Джуз Амма (78–114)</button>
+        <button class="btn sm" data-quick="short">Короткие (≤20 аятов)</button>
+        <button class="btn sm" data-quick="none">Снять все</button>
+      </div>
+      <input class="search" id="surahSearch" placeholder="Поиск суры по названию или номеру…">
+      <div class="surahlist" id="surahList"></div>
+      <div class="muted" style="margin-top:8px;font-size:13px"><span id="selCount">0</span> сур выбрано</div>
+    </div>
+
+    <div class="card">
+      <h2>Аудио офлайн</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:10px">Скачай рецитацию суры, чтобы слушать без интернета (работает в установленном приложении).</div>
+      <div class="row">
+        <select id="dlSurah" style="flex:1"></select>
+        <button class="btn sm" id="btnDownloadAudio">Скачать</button>
+      </div>
+      <div class="progressbar" style="margin-top:10px"><i id="dlFill"></i></div>
+      <div class="muted" id="dlStatus" style="margin-top:6px;font-size:13px"></div>
+    </div>
+
+    <button class="btn primary block" id="btnStart">Начать тренировку →</button>
+  </section>
+
+  <!-- ===================== ТРЕНИРОВКА ===================== -->
+  <section id="quiz" class="hidden">
+    <div class="card">
+      <div class="qhead">
+        <span class="pill" id="qSurah">—</span>
+        <span class="pill" id="qProgress">0 / 0</span>
+      </div>
+      <div class="askline" id="askLine">Продолжи аят:</div>
+      <div class="prompt ar" id="promptBox"></div>
+      <div class="row" style="justify-content:center">
+        <button class="audio-btn" id="btnPlayPrompt">▶︎ Прослушать</button>
+      </div>
+      <div class="opts" id="optsBox"></div>
+      <div class="feedback" id="feedback"></div>
+      <div class="ref" id="refLine"></div>
+    </div>
+  </section>
+</div>
+
+<div class="bottombar hidden" id="quizBar">
+  <button class="btn block" id="btnSkip">Пропустить</button>
+  <button class="btn primary block" id="btnNext">Далее →</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<audio id="player" preload="none"></audio>
+
+<script src="data/quran.js"></script>
+<script>
+"use strict";
+(function(){
+  const Q = window.QURAN;
+  if(!Q){ document.body.innerHTML='<p style="padding:24px">Не найден файл данных <code>data/quran.js</code>. Запусти <code>python3 tools/build_data.py</code>.</p>'; return; }
+
+  // ---------- Плоский индекс всех аятов ----------
+  const SUR = Q.surahs;                       // массив сур
+  const byNum = {}; SUR.forEach(s=>byNum[s.num]=s);
+  const ALL = [];                             // все аяты с ссылкой на суру
+  SUR.forEach(s=> s.ayahs.forEach((a,i)=> ALL.push({su:s.num,sname:s.name,sen:s.en,i,n:a.n,g:a.g,t:a.t,j:a.j,count:s.count})));
+  const byG = {}; ALL.forEach(a=>byG[a.g]=a);
+
+  // ---------- Состояние ----------
+  const LS_KEY="quran_trainer_v1";
+  const defState={ active:SUR.map(s=>s.num), mode:"continue", promptLen:1, opts:10, audio:"manual",
+                   srs:{}, seen:0, correct:0, theme:"light" };
+
+  // Короткие подписи режимов для плашки в тесте
+  const MODES={ continue:"Продолжи", before:"Найди начало", word:"Пропущенное слово", surah:"Угадай суру" };
+  let S = load();
+  function load(){ try{ const r=JSON.parse(localStorage.getItem(LS_KEY)); if(r) return Object.assign({},defState,r);}catch(e){} return JSON.parse(JSON.stringify(defState)); }
+  function save(){ localStorage.setItem(LS_KEY, JSON.stringify(S)); }
+
+  // ---------- Утилиты ----------
+  const $=id=>document.getElementById(id);
+  const rnd=n=>Math.floor(Math.random()*n);
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; }
+  function sample(arr,k){ const c=arr.slice(); shuffle(c); return c.slice(0,k); }
+  function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1400); }
+
+  // ---------- Тема ----------
+  function applyTheme(){ document.documentElement.setAttribute("data-theme", S.theme); $("btnTheme").textContent = S.theme==="dark"?"☀️":"🌙"; }
+  $("btnTheme").onclick=()=>{ S.theme=S.theme==="dark"?"light":"dark"; save(); applyTheme(); };
+
+  // ---------- Установка PWA ----------
+  let deferredPrompt=null;
+  window.addEventListener("beforeinstallprompt", e=>{ e.preventDefault(); deferredPrompt=e; $("btnInstall").classList.remove("hidden"); });
+  $("btnInstall").onclick=async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; $("btnInstall").classList.add("hidden"); };
+  window.addEventListener("appinstalled", ()=> $("btnInstall").classList.add("hidden"));
+
+  // ====================================================================
+  //  ГЛАВНЫЙ ЭКРАН
+  // ====================================================================
+  function activeSet(){ return new Set(S.active); }
+
+  function renderSurahList(filter=""){
+    const box=$("surahList"); box.innerHTML="";
+    const set=activeSet(); const f=filter.trim().toLowerCase();
+    SUR.forEach(s=>{
+      if(f){ const hay=(s.en+" "+s.tr+" "+s.num).toLowerCase(); if(hay.indexOf(f)<0) return; }
+      const row=document.createElement("div");
+      row.className="surow"+(set.has(s.num)?" on":"");
+      row.innerHTML=`<div class="num">${s.num}</div>
+        <div class="meta"><div class="en">${s.en} <span class="muted" style="font-weight:400">· ${s.tr}</span></div>
+        <div class="sub">${s.count} аятов · ${s.type==="Meccan"?"мекканская":"мединская"}</div></div>
+        <div class="arname ar">${s.name.replace(/^سُورَةُ\s*/,"")}</div>`;
+      row.onclick=()=>{ if(set.has(s.num)) S.active=S.active.filter(x=>x!==s.num); else S.active.push(s.num); save(); row.classList.toggle("on"); updateSelCount(); refreshStats(); };
+      box.appendChild(row);
+    });
+  }
+  function updateSelCount(){ $("selCount").textContent=S.active.length; }
+
+  document.querySelectorAll("[data-quick]").forEach(b=>b.onclick=()=>{
+    const q=b.dataset.quick;
+    if(q==="all") S.active=SUR.map(s=>s.num);
+    else if(q==="none") S.active=[];
+    else if(q==="amma") S.active=SUR.filter(s=>s.num>=78).map(s=>s.num);
+    else if(q==="short") S.active=SUR.filter(s=>s.count<=20).map(s=>s.num);
+    save(); renderSurahList($("surahSearch").value); updateSelCount(); refreshStats();
+  });
+  $("surahSearch").oninput=e=>renderSurahList(e.target.value);
+
+  // селекторы настроек
+  $("selMode").value=S.mode; $("selPrompt").value=String(S.promptLen); $("selOpts").value=String(S.opts); $("selAudio").value=S.audio;
+  $("selMode").onchange=e=>{S.mode=e.target.value; save(); refreshStats();};
+  $("selPrompt").onchange=e=>{S.promptLen=+e.target.value; save(); refreshStats();};
+  $("selOpts").onchange=e=>{S.opts=+e.target.value; save();};
+  $("selAudio").onchange=e=>{S.audio=e.target.value; save(); applyAudioMode();};
+
+  // ---------- разбор слов (для режима «пропущенное слово») ----------
+  // длина «скелета» слова без огласовок/знаков — чтобы отличать слова от вакф-знаков
+  function baseLen(w){ return w.replace(/[ً-ٰٟۖ-ۭـ]/g,"").length; }
+  function isWord(w){ return baseLen(w)>=2; }
+  function wordTokens(t){ return t.split(/\s+/).filter(isWord); }
+
+  // прогресс — набор «опорных» аятов зависит от режима
+  function candidates(mode){
+    const set=activeSet(); const res=[];
+    SUR.forEach(s=>{ if(!set.has(s.num)) return;
+      const A=s.ayahs;
+      if(mode==="continue"){ for(let i=S.promptLen;i<A.length;i++) res.push(A[i].g); }
+      else if(mode==="before"){ for(let i=0;i<A.length-1;i++) res.push(A[i].g); }
+      else if(mode==="word"){ for(let i=0;i<A.length;i++) if(wordTokens(A[i].t).length>=3) res.push(A[i].g); }
+      else { for(let i=0;i<A.length;i++) res.push(A[i].g); } // surah
+    });
+    return res;
+  }
+  function refreshStats(){
+    const cand=candidates(S.mode);
+    let learned=0; cand.forEach(g=>{ const b=S.srs[g]; if(b&&b.box>=5) learned++; });
+    $("stActive").textContent=cand.length;
+    $("stLearned").textContent=learned;
+    const acc = S.seen? Math.round(100*S.correct/S.seen):null;
+    $("stAcc").textContent= acc===null?"—":acc+"%";
+    $("progFill").style.width = cand.length? (100*learned/cand.length)+"%":"0";
+    $("stSeenLine").textContent = S.seen? `Ответов: ${S.seen} · верно: ${S.correct}` : "Ещё не было ответов";
+    updateSelCount();
+  }
+
+  $("btnReset").onclick=()=>{ if(confirm("Сбросить весь прогресс заучивания?")){ S.srs={};S.seen=0;S.correct=0; save(); refreshStats(); toast("Прогресс сброшен"); } };
+
+  // ====================================================================
+  //  ТРЕНИРОВКА
+  // ====================================================================
+  let cur=null, answered=false, sessionDone=0, sessionTotal=0;
+  const player=$("player");
+
+  function audioUrl(g){ return Q.audioBase.replace("{n}",g); }
+  // Проигрывает аяты по списку последовательно. Сначала пробует локальный файл
+  // audio/<g>.mp3 (если скачан инструментом download_audio.py), при ошибке — стрим с CDN.
+  function playList(gs){
+    let k=0;
+    const step=()=>{ if(k>=gs.length){ player.onended=null; return; } const g=gs[k++];
+      player.onended=step;
+      player.src="audio/"+g+".mp3";
+      player.play().catch(()=>{ player.src=audioUrl(g); player.play().catch(()=>{}); });
+    };
+    step();
+  }
+  function applyAudioMode(){ const b=$("btnPlayPrompt"); if(b) b.style.display = S.audio==="off"?"none":""; }
+
+  function pickWeighted(cands){
+    // вес тем больше, чем хуже знаешь аят (низкий box) и чем дольше не повторял
+    let total=0; const w=cands.map(g=>{ const r=S.srs[g]; const box=r?r.box:0; let weight=7-Math.min(box,6); if(!r) weight+=3; total+=weight; return weight; });
+    let x=Math.random()*total;
+    for(let i=0;i<cands.length;i++){ x-=w[i]; if(x<=0) return cands[i]; }
+    return cands[cands.length-1];
+  }
+
+  function buildDistractors(correct, n, exclude){
+    const pool=[]; const seenTxt=new Set([correct.t, ...(exclude||[])]);
+    const add=a=>{ if(!seenTxt.has(a.t)){ seenTxt.add(a.t); pool.push(a); } };
+    // 1) та же сура
+    byNum[correct.su].ayahs.forEach(a=>{ if(a.g!==correct.g) add(byG[a.g]); });
+    let need=n; let res=sample(pool,Math.min(need,pool.length));
+    // 2) тот же джуз
+    if(res.length<need){ const more=ALL.filter(a=>a.j===correct.j); shuffle(more); for(const a of more){ if(res.length>=need)break; if(!seenTxt.has(a.t)){seenTxt.add(a.t);res.push(a);} } }
+    // 3) откуда угодно
+    if(res.length<need){ const more=ALL.slice(); shuffle(more); for(const a of more){ if(res.length>=need)break; if(!seenTxt.has(a.t)){seenTxt.add(a.t);res.push(a);} } }
+    return res.slice(0,need);
+  }
+
+  function surahLabel(s){ return `${s.num}. ${s.en}`; }
+
+  function buildWordDistractors(missing, s, a, n){
+    const seen=new Set([missing]); const pool=[];
+    const collect=ayahs=>ayahs.forEach(ay=>ay.t.split(/\s+/).forEach(w=>{ if(isWord(w)&&!seen.has(w)){seen.add(w);pool.push(w);} }));
+    collect(s.ayahs); shuffle(pool);
+    let res=pool.slice(0,n);
+    if(res.length<n){ const ex=[]; ALL.filter(x=>x.j===a.j).forEach(x=>x.t.split(/\s+/).forEach(w=>{ if(isWord(w)&&!seen.has(w)){seen.add(w);ex.push(w);} })); shuffle(ex); for(const w of ex){ if(res.length>=n)break; res.push(w);} }
+    if(res.length<n){ const ex=[]; ALL.forEach(x=>x.t.split(/\s+/).forEach(w=>{ if(isWord(w)&&!seen.has(w)){seen.add(w);ex.push(w);} })); shuffle(ex); for(const w of ex){ if(res.length>=n)break; res.push(w);} }
+    return res.slice(0,n);
+  }
+
+  // Генерирует вопрос по режиму. g — «опорный» аят (см. candidates).
+  // Возвращает {ask, promptHTML, options:[{text,correct,ar}], refLine, srsKey, audioGs, answerGs}.
+  function buildQuestion(mode, g){
+    const a=byG[g], s=byNum[a.su], idx=a.i, A=s.ayahs;
+    const opt=t=>({text:t,correct:false,ar:true});
+
+    if(mode==="continue"){
+      const prompts=[]; for(let k=S.promptLen;k>=1;k--) prompts.push(A[idx-k]);
+      const d=buildDistractors(a,S.opts-1,prompts.map(p=>p.t));
+      return { ask:S.promptLen>1?"Что идёт дальше?":"Продолжи аят:",
+        promptHTML:prompts.map(p=>`<div class="seg">${p.t}</div>`).join(""),
+        options:shuffle([{text:a.t,correct:true,ar:true}, ...d.map(x=>opt(x.t))]),
+        refLine:`${s.en} (${s.num}:${a.n})`, srsKey:g, audioGs:prompts.map(p=>p.g), answerGs:[g] };
+    }
+    if(mode==="before"){
+      const shown=A[idx+1];
+      const d=buildDistractors(a,S.opts-1,[shown.t]);
+      return { ask:"Какой аят идёт ПЕРЕД этим?",
+        promptHTML:`<div class="seg">${shown.t}</div>`,
+        options:shuffle([{text:a.t,correct:true,ar:true}, ...d.map(x=>opt(x.t))]),
+        refLine:`${s.en} (${s.num}:${a.n} → ${shown.n})`, srsKey:g, audioGs:[shown.g], answerGs:[g] };
+    }
+    if(mode==="word"){
+      const words=a.t.split(/\s+/);
+      const idxs=words.map((w,i)=>i).filter(i=>isWord(words[i]));
+      const wi=idxs[rnd(idxs.length)], missing=words[wi];
+      const blanked=words.map((w,i)=> i===wi ? "□□□" : w).join(" ");
+      const d=buildWordDistractors(missing,s,a,S.opts-1);
+      return { ask:"Какое слово пропущено?",
+        promptHTML:`<div class="seg">${blanked}</div>`,
+        options:shuffle([{text:missing,correct:true,ar:true}, ...d.map(opt)]),
+        refLine:`${s.en} (${s.num}:${a.n})`, srsKey:g, audioGs:[g], answerGs:[g] };
+    }
+    // surah — угадать суру по аяту
+    const act=SUR.filter(x=>x.num!==s.num && activeSet().has(x.num));
+    const rest=SUR.filter(x=>x.num!==s.num && !activeSet().has(x.num));
+    const pool=[...shuffle(act), ...shuffle(rest)].slice(0,S.opts-1);
+    return { ask:"Из какой суры этот аят?",
+      promptHTML:`<div class="seg">${a.t}</div>`,
+      options:shuffle([{text:surahLabel(s),correct:true,ar:false}, ...pool.map(x=>({text:surahLabel(x),correct:false,ar:false}))]),
+      refLine:`${s.en} (${s.num}:${a.n})`, srsKey:g, audioGs:[g], answerGs:[g] };
+  }
+
+  function newQuestion(){
+    answered=false;
+    const cand=candidates(S.mode);
+    if(!cand.length){ toast("Мало данных для режима — выбери больше сур"); showHome(); return; }
+    cur=buildQuestion(S.mode, pickWeighted(cand));
+    renderQuestion(cur);
+  }
+
+  function renderQuestion(q){
+    $("qSurah").textContent=MODES[S.mode];
+    sessionTotal++; $("qProgress").textContent=`${sessionDone} / ${sessionTotal}`;
+    $("askLine").textContent=q.ask;
+    $("promptBox").innerHTML=q.promptHTML;
+    const ob=$("optsBox"); ob.innerHTML="";
+    q.options.forEach((o,i)=>{
+      const el=document.createElement("div"); el.className="opt";
+      const key=i<9?(i+1):(i===9?"0":"");
+      el.innerHTML=`<div class="key">${key}</div><div class="txt${o.ar?" ar":""}">${o.text}</div>`;
+      el.onclick=()=>choose(o,el);
+      ob.appendChild(el);
+    });
+    $("feedback").textContent=""; $("feedback").className="feedback";
+    $("refLine").textContent="";
+    $("btnNext").classList.add("hidden"); $("btnSkip").classList.remove("hidden");
+    applyAudioMode();
+    if(S.audio==="auto" && q.audioGs && q.audioGs.length) playList(q.audioGs);
+  }
+
+  function recordResult(g,ok){
+    let r=S.srs[g]||{box:0,seen:0,correct:0,wrong:0};
+    r.seen++; if(ok){ r.correct++; r.box=Math.min(6,r.box+1);} else { r.wrong++; r.box=0; }
+    S.srs[g]=r; S.seen++; if(ok)S.correct++; save();
+  }
+
+  function choose(opt,el){
+    if(answered) return; answered=true;
+    const correct=!!opt.correct;
+    recordResult(cur.srsKey, correct);
+    [...$("optsBox").children].forEach((c,i)=>{ c.classList.add("disabled"); c.onclick=null; if(cur.options[i].correct) c.classList.add("correct"); });
+    if(!correct) el.classList.add("wrong");
+    const fb=$("feedback");
+    fb.textContent = correct? "✓ Верно!" : "✗ Не то — правильный вариант подсвечен";
+    fb.className="feedback "+(correct?"ok":"no");
+    $("refLine").textContent=cur.refLine;
+    sessionDone++; $("qProgress").textContent=`${sessionDone} / ${sessionTotal}`;
+    $("btnNext").classList.remove("hidden"); $("btnSkip").classList.add("hidden");
+    if(S.audio!=="off" && cur.answerGs) playList(cur.answerGs);
+  }
+
+  $("btnPlayPrompt").onclick=()=> cur && cur.audioGs && playList(cur.audioGs);
+
+  // ---------- скачивание аудио суры для офлайна ----------
+  $("dlSurah").innerHTML=SUR.map(s=>`<option value="${s.num}">${s.num}. ${s.en} (${s.count})</option>`).join("");
+  async function downloadSurahAudio(num){
+    const s=byNum[num], gs=s.ayahs.map(a=>a.g);
+    const btn=$("btnDownloadAudio"), fill=$("dlFill"), st=$("dlStatus");
+    btn.disabled=true; fill.style.width="0"; st.textContent=`Скачиваю ${s.en}…`;
+    let done=0, fail=0; const B=5;
+    for(let i=0;i<gs.length;i+=B){
+      await Promise.all(gs.slice(i,i+B).map(g=> fetch(audioUrl(g),{mode:"no-cors"}).then(()=>{done++;}).catch(()=>{fail++;})));
+      fill.style.width=Math.round(100*(done+fail)/gs.length)+"%";
+      st.textContent=`${done+fail} / ${gs.length}`;
+    }
+    btn.disabled=false;
+    st.textContent = fail ? `Готово, но были ошибки (${fail}) — проверь интернет.` : `Готово ✓ ${s.en} доступна офлайн.`;
+  }
+  $("btnDownloadAudio").onclick=()=> downloadSurahAudio(+$("dlSurah").value);
+
+  $("btnNext").onclick=()=>newQuestion();
+  $("btnSkip").onclick=()=>{ sessionDone++; newQuestion(); };
+
+  // клавиатура
+  document.addEventListener("keydown",e=>{
+    if($("quiz").classList.contains("hidden")) return;
+    if(e.key==="Enter"){ if(answered) newQuestion(); return; }
+    if(/^[0-9]$/.test(e.key)){ const idx = e.key==="0"?9:(+e.key-1); const el=$("optsBox").children[idx]; if(el && !answered) el.click(); }
+  });
+
+  // ====================================================================
+  //  НАВИГАЦИЯ
+  // ====================================================================
+  function showQuiz(){ $("home").classList.add("hidden"); $("quiz").classList.remove("hidden"); $("quizBar").classList.remove("hidden"); $("btnHome").classList.remove("hidden"); sessionDone=0;sessionTotal=0; newQuestion(); }
+  function showHome(){ $("quiz").classList.add("hidden"); $("quizBar").classList.add("hidden"); $("btnHome").classList.add("hidden"); $("home").classList.remove("hidden"); player.pause(); refreshStats(); }
+  $("btnStart").onclick=()=>{ if(!S.active.length){toast("Выбери хотя бы одну суру");return;} showQuiz(); };
+  $("btnHome").onclick=showHome;
+
+  // ---------- старт ----------
+  applyTheme(); renderSurahList(); refreshStats();
+})();
+</script>
+<script>
+// Регистрация service worker (работает только по https:// или на localhost).
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
