@@ -516,31 +516,43 @@
   // ---------- скачивание аудио суры для офлайна ----------
   $("dlSurah").innerHTML=SUR.map(s=>`<option value="${s.num}">${s.num}. ${s.en} (${s.count})</option>`).join("");
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  async function grabAudio(g){            // одна попытка скачать аят, с 3 ретраями
-    for(let a=0;a<3;a++){
-      try{ await fetch(audioUrl(g),{mode:"no-cors"}); return true; }
-      catch(e){ await sleep(400*(a+1)); }
+  const AUDIO_CACHE="quran-audio";   // то же имя кэша, что в sw.js
+  // Скачивает ОДИН аят и сам кладёт его в кэш, дожидаясь записи (так ловим
+  // переполнение хранилища на iPhone). Пропускает уже скачанное.
+  // Возвращает: "cached" | "ok" | "quota" | "fail".
+  async function grabAudio(g){
+    const url=audioUrl(g);
+    let cache=null;
+    try{ cache=await caches.open(AUDIO_CACHE); if(await cache.match(url)) return "cached"; }catch(e){}
+    for(let a=0;a<4;a++){
+      try{
+        const res=await fetch(url,{mode:"no-cors"});
+        if(cache) await cache.put(url,res);      // ждём запись — иначе не узнаем про переполнение
+        return "ok";
+      }catch(e){
+        if(e && (e.name==="QuotaExceededError" || /quota/i.test(e.message||""))) return "quota";
+        await sleep(700*(a+1));
+      }
     }
-    return false;
+    return "fail";
   }
   async function downloadSurahAudio(num){
     const s=byNum[num], gs=s.ayahs.map(a=>a.g);
     const btn=$("btnDownloadAudio"), fill=$("dlFill"), st=$("dlStatus");
     btn.disabled=true; fill.style.width="0"; st.textContent=`Скачиваю ${s.en}…`;
-    let done=0; const failed=[]; const B=3;     // мягче к CDN: по 3 за раз
-    for(let i=0;i<gs.length;i+=B){
-      const chunk=gs.slice(i,i+B);
-      const res=await Promise.all(chunk.map(grabAudio));
-      res.forEach((ok,j)=>{ ok?done++:failed.push(chunk[j]); });
-      const processed=Math.min(gs.length,i+B);
-      fill.style.width=Math.round(100*processed/gs.length)+"%";
-      st.textContent=`${processed} / ${gs.length}`;
-      await sleep(120);
+    let done=0, quota=false; const failed=[];
+    for(let i=0;i<gs.length;i++){                 // строго последовательно — надёжно на iPhone
+      const r=await grabAudio(gs[i]);
+      if(r==="ok"||r==="cached") done++; else { failed.push(gs[i]); if(r==="quota"){quota=true;} }
+      fill.style.width=Math.round(100*(i+1)/gs.length)+"%";
+      st.textContent=`${i+1} / ${gs.length}`;
+      if(quota) break;                            // дальше продолжать нет смысла
+      if(r==="ok") await sleep(100);              // пауза только после реальной загрузки
     }
     fill.style.width="100%"; btn.disabled=false;
-    st.textContent = failed.length===0
-      ? `Готово ✓ ${s.en} доступна офлайн (${gs.length} аятов).`
-      : `Скачано ${done} из ${gs.length}. Не удалось ${failed.length} — нажми «Скачать» ещё раз при стабильном интернете.`;
+    if(quota) st.textContent=`Память приложения заполнена (сохранено ${done} из ${gs.length}). На iPhone у веб-приложений лимит — скачивай по 1–2 суры за раз.`;
+    else if(failed.length) st.textContent=`Скачано ${done} из ${gs.length}. Не удалось ${failed.length} — нажми «Скачать» ещё раз.`;
+    else st.textContent=`Готово ✓ ${s.en} доступна офлайн (${gs.length} аятов).`;
   }
   $("btnDownloadAudio").onclick=()=> downloadSurahAudio(+$("dlSurah").value);
 
