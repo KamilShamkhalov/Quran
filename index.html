@@ -190,31 +190,25 @@
     </div>
 
     <div class="card">
-      <h2>Что тренируем</h2>
-      <div class="tabs">
+      <div class="tabs" id="panelTabs">
+        <button class="tab" data-panel="train">Тренировка</button>
+        <button class="tab" data-panel="audio">Аудио</button>
+      </div>
+      <div class="tabs" style="margin-top:8px">
         <button class="tab" data-tab="page">Страницы</button>
         <button class="tab" data-tab="juz">Джузы</button>
         <button class="tab" data-tab="surah">Суры</button>
       </div>
-      <div class="quickrow" style="margin-top:10px">
+      <div class="quickrow" id="quickRow" style="margin-top:10px">
         <button class="btn sm" id="qAll">Выбрать все</button>
         <button class="btn sm" id="qNone">Снять все</button>
       </div>
+      <div class="muted hidden" id="audioHint" style="font-size:13px;margin-top:10px">Нажми на страницу / джуз / суру, чтобы скачать рецитацию для офлайна. ⤓ — уже скачано.</div>
       <input class="search hidden" id="surahSearch" placeholder="Поиск суры по названию или номеру…">
       <div id="numWrap" class="hidden"><div class="numgrid" id="numGrid"></div></div>
       <div class="surahlist hidden" id="surahList"></div>
-      <div class="muted" style="margin-top:8px;font-size:13px"><span id="selCount">0</span> аятов выбрано</div>
-    </div>
-
-    <div class="card">
-      <h2>Аудио офлайн</h2>
-      <div class="muted" style="font-size:13px;margin-bottom:10px">Скачай рецитацию суры, чтобы слушать без интернета (работает в установленном приложении).</div>
-      <div class="row">
-        <select id="dlSurah" style="flex:1"></select>
-        <button class="btn sm" id="btnDownloadAudio">Скачать</button>
-      </div>
-      <div class="progressbar" style="margin-top:10px"><i id="dlFill"></i></div>
-      <div class="muted" id="dlStatus" style="margin-top:6px;font-size:13px"></div>
+      <div class="muted" id="selCountLine" style="margin-top:8px;font-size:13px"><span id="selCount">0</span> аятов выбрано</div>
+      <div class="muted hidden" id="dlStatus" style="margin-top:8px;font-size:13px"></div>
     </div>
 
     <button class="btn primary block" id="btnStart">Начать тренировку →</button>
@@ -317,11 +311,17 @@
   }
   const allDownloaded=gs=> gs.length>0 && gs.every(g=>cachedG.has(g));
 
-  let curTab="surah";
+  let curTab="surah", panel="train";   // panel: train | audio
   const arrField=tab=> tab==="page"?"selPages": tab==="juz"?"selJuz":"selSurahs";
+  const isAudio=()=> panel==="audio";
 
   function renderSelector(){
-    document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on", t.dataset.tab===curTab));
+    document.querySelectorAll("#panelTabs .tab").forEach(t=>t.classList.toggle("on", t.dataset.panel===panel));
+    document.querySelectorAll("[data-tab]").forEach(t=>t.classList.toggle("on", t.dataset.tab===curTab));
+    $("quickRow").classList.toggle("hidden", isAudio());
+    $("audioHint").classList.toggle("hidden", !isAudio());
+    $("selCountLine").classList.toggle("hidden", isAudio());
+    $("dlStatus").classList.toggle("hidden", !isAudio());
     const isSurah=curTab==="surah";
     $("surahSearch").classList.toggle("hidden", !isSurah);
     $("surahList").classList.toggle("hidden", !isSurah);
@@ -335,18 +335,19 @@
     const box=$("numGrid"); box.innerHTML="";
     const isPage=curTab==="page";
     const max=isPage?MAXPAGE:MAXJUZ;
-    const arr=isPage?S.selPages:S.selJuz; const set=new Set(arr);
+    const field=isPage?"selPages":"selJuz"; const set=new Set(S[field]);
     const gsOf=isPage?pageGs:juzGs;
     for(let i=1;i<=max;i++){
       const cell=document.createElement("div");
       const dl=allDownloaded(gsOf[i]||[]);
-      cell.className="numcell"+(set.has(i)?" on":"")+(dl?" dl":"");
+      const on=!isAudio() && set.has(i);
+      cell.className="numcell"+(on?" on":"")+(dl?" dl":"");
       cell.textContent=i;
       cell.onclick=()=>{
-        const field=isPage?"selPages":"selJuz";
-        const on=S[field].includes(i);
-        S[field]= on ? S[field].filter(x=>x!==i) : S[field].concat(i);
-        save(); cell.classList.toggle("on", !on); updateSelCount();
+        if(isAudio()){ downloadGs(gsOf[i]||[], (isPage?"Стр. ":"Джуз ")+i, cell); return; }
+        const was=S[field].includes(i);
+        S[field]= was ? S[field].filter(x=>x!==i) : S[field].concat(i);
+        save(); cell.classList.toggle("on", !was); updateSelCount();
       };
       box.appendChild(cell);
     }
@@ -358,16 +359,18 @@
     SUR.forEach(s=>{
       if(f){ const hay=(s.en+" "+s.tr+" "+s.num).toLowerCase(); if(hay.indexOf(f)<0) return; }
       const dl=allDownloaded(s.ayahs.map(a=>a.g));
+      const on=!isAudio() && set.has(s.num);
       const row=document.createElement("div");
-      row.className="surow"+(set.has(s.num)?" on":"")+(dl?" dl":"");
+      row.className="surow"+(on?" on":"")+(dl?" dl":"");
       row.innerHTML=`<div class="chk">✓</div><div class="num">${s.num}</div>
         <div class="meta"><div class="en">${s.en} <span class="muted" style="font-weight:400">· ${s.tr}</span></div>
         <div class="sub">${s.count} аятов · ${s.type==="Meccan"?"мекканская":"мединская"}</div></div>
         <div class="arname ar">${s.name.replace(/^سُورَةُ\s*/,"")}</div>`;
       row.onclick=()=>{
-        const on=S.selSurahs.includes(s.num);
-        S.selSurahs = on ? S.selSurahs.filter(x=>x!==s.num) : S.selSurahs.concat(s.num);
-        save(); row.classList.toggle("on", !on); updateSelCount();
+        if(isAudio()){ downloadGs(s.ayahs.map(a=>a.g), s.en, row); return; }
+        const was=S.selSurahs.includes(s.num);
+        S.selSurahs = was ? S.selSurahs.filter(x=>x!==s.num) : S.selSurahs.concat(s.num);
+        save(); row.classList.toggle("on", !was); updateSelCount();
       };
       box.appendChild(row);
     });
@@ -381,7 +384,8 @@
     save(); renderSelector();
   };
   $("qNone").onclick=()=>{ S[arrField(curTab)]=[]; save(); renderSelector(); };
-  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ curTab=t.dataset.tab; renderSelector(); });
+  document.querySelectorAll("#panelTabs .tab").forEach(t=>t.onclick=()=>{ panel=t.dataset.panel; renderSelector(); });
+  document.querySelectorAll("[data-tab]").forEach(t=>t.onclick=()=>{ curTab=t.dataset.tab; renderSelector(); });
   $("surahSearch").oninput=e=>renderSurahList(e.target.value);
 
   // селекторы настроек
@@ -565,8 +569,7 @@
 
   $("btnPlayPrompt").onclick=()=> cur && cur.audioGs && playList(cur.audioGs);
 
-  // ---------- скачивание аудио суры для офлайна ----------
-  $("dlSurah").innerHTML=SUR.map(s=>`<option value="${s.num}">${s.num}. ${s.en} (${s.count})</option>`).join("");
+  // ---------- скачивание аудио для офлайна ----------
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const AUDIO_CACHE="quran-audio";   // то же имя кэша, что в sw.js
   // Скачивает ОДИН аят и сам кладёт его в кэш, дожидаясь записи (так ловим
@@ -588,26 +591,26 @@
     }
     return "fail";
   }
-  async function downloadSurahAudio(num){
-    const s=byNum[num], gs=s.ayahs.map(a=>a.g);
-    const btn=$("btnDownloadAudio"), fill=$("dlFill"), st=$("dlStatus");
-    btn.disabled=true; fill.style.width="0"; st.textContent=`Скачиваю ${s.en}…`;
+  let dling=false;
+  // Скачивает список аятов в офлайн-кэш (страница / джуз / сура). label — для статуса.
+  async function downloadGs(gs, label, el){
+    if(dling) return; dling=true;
+    const st=$("dlStatus"); if(el) el.style.opacity=".5";
+    st.textContent=`Скачиваю ${label}…`;
     let done=0, quota=false; const failed=[];
     for(let i=0;i<gs.length;i++){                 // строго последовательно — надёжно на iPhone
       const r=await grabAudio(gs[i]);
       if(r==="ok"||r==="cached") done++; else { failed.push(gs[i]); if(r==="quota"){quota=true;} }
-      fill.style.width=Math.round(100*(i+1)/gs.length)+"%";
-      st.textContent=`${i+1} / ${gs.length}`;
-      if(quota) break;                            // дальше продолжать нет смысла
+      st.textContent=`${label}: ${i+1} / ${gs.length}`;
+      if(quota) break;
       if(r==="ok") await sleep(100);              // пауза только после реальной загрузки
     }
-    fill.style.width="100%"; btn.disabled=false;
-    if(quota) st.textContent=`Память приложения заполнена (сохранено ${done} из ${gs.length}). На iPhone у веб-приложений лимит — скачивай по 1–2 суры за раз.`;
-    else if(failed.length) st.textContent=`Скачано ${done} из ${gs.length}. Не удалось ${failed.length} — нажми «Скачать» ещё раз.`;
-    else st.textContent=`Готово ✓ ${s.en} доступна офлайн (${gs.length} аятов).`;
-    await loadCached(); renderSelector();
+    if(el) el.style.opacity="";
+    if(quota) st.textContent=`Память приложения заполнена (сохранено ${done} из ${gs.length}). На iPhone у веб-приложений лимит — скачивай по 1–2 за раз.`;
+    else if(failed.length) st.textContent=`${label}: скачано ${done} из ${gs.length}. Не удалось ${failed.length} — нажми ещё раз.`;
+    else st.textContent=`Готово ✓ ${label} доступна офлайн (${gs.length} аятов).`;
+    dling=false; await loadCached(); renderSelector();
   }
-  $("btnDownloadAudio").onclick=()=> downloadSurahAudio(+$("dlSurah").value);
 
   $("btnNext").onclick=()=>newQuestion();
   $("btnSkip").onclick=()=>{ sessionDone++; newQuestion(); };
