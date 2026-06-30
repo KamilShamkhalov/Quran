@@ -44,6 +44,7 @@
     direction:rtl; line-height:2.1; font-feature-settings:"liga" 1;
     color:var(--ar-ink, var(--ink));
   }
+  .ar .waqf{color:var(--waqf, inherit)}
   .wrap{max-width:780px; margin:0 auto; padding:16px 16px 96px}
   header.top{
     display:flex; align-items:center; gap:12px; padding:14px 16px;
@@ -317,7 +318,26 @@
     root.setProperty("--ar-ink", S.col.ar || "var(--ink)");
     if(S.col.accent) root.setProperty("--accent", S.col.accent); else root.removeProperty("--accent");
     if(S.col.bg) root.setProperty("--bg", S.col.bg); else root.removeProperty("--bg");
+    computeWaqf();
   }
+  // ---- авто-цвет знаков остановки: максимально контрастный к фону И к тексту ----
+  const WAQF_CANDS=["#e11d2e","#1d6fe1","#0a8f3c","#8a2be2","#e07b00","#00a3a3","#d6006e","#f5c400","#111111","#ffffff"];
+  const hexRGB=h=>{h=h.replace("#","");if(h.length===3)h=h.split("").map(x=>x+x).join("");return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];};
+  const parseRGB=s=>{const m=s.match(/[\d.]+/g);return m?[+m[0],+m[1],+m[2]]:[0,0,0];};
+  const lum=c=>{const a=c.map(v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];};
+  const contrast=(a,b)=>{const L1=lum(a),L2=lum(b),hi=Math.max(L1,L2),lo=Math.min(L1,L2);return (hi+0.05)/(lo+0.05);};
+  function computeWaqf(){
+    const bg=parseRGB(getComputedStyle(document.body).backgroundColor);
+    const probe=document.createElement("span"); probe.className="ar";
+    probe.style.cssText="position:absolute;left:-9999px;visibility:hidden"; probe.textContent="ا";
+    document.body.appendChild(probe); const ink=parseRGB(getComputedStyle(probe).color); probe.remove();
+    let best=WAQF_CANDS[0], score=-1;
+    WAQF_CANDS.forEach(c=>{ const rgb=hexRGB(c); const s=Math.min(contrast(rgb,bg),contrast(rgb,ink)); if(s>score){score=s;best=c;} });
+    document.documentElement.style.setProperty("--waqf", best);
+  }
+  // оборачивает знаки остановок (вакф/символы) в <span class="waqf"> для отдельного цвета
+  const WAQF_RE=/([ۖ-ۜ۝۞۩])/g;
+  const wrapWaqf=t=> t.replace(WAQF_RE,'<span class="waqf">$1</span>');
   const PRESETS={
     ar:     ["#1f2a26","#0f4c3a","#5b3a1a","#7a1f1f","#14532d"],
     accent: ["#0f766e","#b8860b","#1d4ed8","#9333ea","#b91c1c"],
@@ -588,12 +608,12 @@
     $("qSurah").textContent=MODES[S.mode];
     sessionTotal++; $("qProgress").textContent=`${sessionDone} / ${sessionTotal}`;
     $("askLine").textContent=q.ask;
-    $("promptBox").innerHTML=q.promptHTML;
+    $("promptBox").innerHTML=wrapWaqf(q.promptHTML);
     const ob=$("optsBox"); ob.innerHTML="";
     q.options.forEach((o,i)=>{
       const el=document.createElement("div"); el.className="opt";
       const key=i<9?(i+1):(i===9?"0":"");
-      el.innerHTML=`<div class="key">${key}</div><div class="txt${o.ar?" ar":""}">${o.text}</div>`;
+      el.innerHTML=`<div class="key">${key}</div><div class="txt${o.ar?" ar":""}">${o.ar?wrapWaqf(o.text):o.text}</div>`;
       el.onclick=()=>choose(o,el);
       ob.appendChild(el);
     });
