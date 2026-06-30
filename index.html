@@ -33,10 +33,16 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
     font-size:16px; line-height:1.5; -webkit-text-size-adjust:100%;
   }
+  @font-face{
+    font-family:"UthmanicHafs";
+    src:url("fonts/uthmanic_hafs.woff2") format("woff2");
+    font-display:swap;
+  }
   .ar{
-    font-family:"SF Arabic","Geeza Pro","Scheherazade New","Traditional Arabic","Amiri",
-                "Noto Naskh Arabic",serif;
-    direction:rtl; line-height:2; font-feature-settings:"liga" 1;
+    font-family:"UthmanicHafs","SF Arabic","Geeza Pro","Scheherazade New",
+                "Traditional Arabic","Amiri","Noto Naskh Arabic",serif;
+    direction:rtl; line-height:2.1; font-feature-settings:"liga" 1;
+    color:var(--ar-ink, var(--ink));
   }
   .wrap{max-width:780px; margin:0 auto; padding:16px 16px 96px}
   header.top{
@@ -53,6 +59,14 @@
     display:grid; place-items:center;
   }
   .iconbtn:active{transform:scale(.96)}
+  .backbtn{font-size:26px; line-height:1; padding-bottom:3px}
+  .swatchrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px}
+  .swatch{width:30px; height:30px; border-radius:50%; border:2px solid var(--line); cursor:pointer; position:relative; padding:0}
+  .swatch.on{border-color:var(--ink); box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--ink)}
+  .swatch.auto{background:repeating-conic-gradient(var(--muted) 0 25%, transparent 0 50%) 50%/10px 10px, var(--card)}
+  .swatch.custom{display:grid; place-items:center; font-size:15px; overflow:hidden}
+  .swatch.custom input{position:absolute; inset:0; opacity:0; cursor:pointer}
+  .clabel{font-size:13px; color:var(--muted); margin-top:12px}
   .card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
     box-shadow:var(--shadow); padding:18px; margin:14px 0;
@@ -139,12 +153,12 @@
 </head>
 <body>
 <header class="top">
+  <button class="iconbtn backbtn hidden" id="btnBack" title="Назад">‹</button>
   <span class="logo">📖</span>
   <h1>Заучивание Корана</h1>
   <span class="sp"></span>
   <button class="iconbtn hidden" id="btnInstall" title="Установить приложение">⤓</button>
   <button class="iconbtn" id="btnTheme" title="Тема">🌙</button>
-  <button class="iconbtn hidden" id="btnHome" title="На главную">⌂</button>
 </header>
 
 <div class="wrap">
@@ -187,6 +201,16 @@
           </select>
         </div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Внешний вид</h2>
+      <div class="clabel">Цвет текста аята</div>
+      <div class="swatchrow" id="swAr"></div>
+      <div class="clabel">Акцент интерфейса</div>
+      <div class="swatchrow" id="swAccent"></div>
+      <div class="clabel">Фон страницы</div>
+      <div class="swatchrow" id="swBg"></div>
     </div>
 
     <div class="card">
@@ -266,7 +290,8 @@
   const LS_KEY="quran_trainer_v1";
   const defState={ selSurahs:SUR.map(s=>s.num), selPages:[], selJuz:[],
                    mode:"continue", promptLen:1, opts:4, audio:"manual",
-                   srs:{}, seen:0, correct:0, theme:"light" };
+                   srs:{}, seen:0, correct:0, theme:"light",
+                   col:{ar:"",accent:"",bg:""} };
 
   // Короткие подписи режимов для плашки в тесте
   const MODES={ continue:"Продолжи", before:"Найди начало", word:"Пропущенное слово", surah:"Угадай суру" };
@@ -282,8 +307,41 @@
   function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1400); }
 
   // ---------- Тема ----------
-  function applyTheme(){ document.documentElement.setAttribute("data-theme", S.theme); $("btnTheme").textContent = S.theme==="dark"?"☀️":"🌙"; }
+  function applyTheme(){ document.documentElement.setAttribute("data-theme", S.theme); $("btnTheme").textContent = S.theme==="dark"?"☀️":"🌙"; applyColors(); }
   $("btnTheme").onclick=()=>{ S.theme=S.theme==="dark"?"light":"dark"; save(); applyTheme(); };
+
+  // ---------- Цвета (пользовательские, поверх темы) ----------
+  if(!S.col) S.col={ar:"",accent:"",bg:""};
+  function applyColors(){
+    const root=document.documentElement.style;
+    root.setProperty("--ar-ink", S.col.ar || "var(--ink)");
+    if(S.col.accent) root.setProperty("--accent", S.col.accent); else root.removeProperty("--accent");
+    if(S.col.bg) root.setProperty("--bg", S.col.bg); else root.removeProperty("--bg");
+  }
+  const PRESETS={
+    ar:     ["#1f2a26","#0f4c3a","#5b3a1a","#7a1f1f","#14532d"],
+    accent: ["#0f766e","#b8860b","#1d4ed8","#9333ea","#b91c1c"],
+    bg:     ["#f5f3ec","#ffffff","#f0ead6","#eef2ee","#1a1c19"]
+  };
+  function buildSwatches(boxId, key){
+    const box=$(boxId); box.innerHTML="";
+    const mk=(color,cls,title)=>{ const b=document.createElement("button");
+      b.className="swatch "+cls+((S.col[key]||"")===(color||"")?" on":"");
+      if(color) b.style.background=color; b.title=title||""; return b; };
+    // авто (цвет темы)
+    const auto=mk("","auto","По умолчанию");
+    auto.onclick=()=>{ S.col[key]=""; save(); applyColors(); renderColorUI(); };
+    box.appendChild(auto);
+    PRESETS[key].forEach(c=>{ const b=mk(c,"","");
+      b.onclick=()=>{ S.col[key]=c; save(); applyColors(); renderColorUI(); }; box.appendChild(b); });
+    // свой цвет
+    const cust=document.createElement("button"); cust.className="swatch custom"; cust.title="Свой цвет"; cust.textContent="🎨";
+    const inp=document.createElement("input"); inp.type="color"; inp.value=S.col[key]||"#000000";
+    inp.oninput=e=>{ S.col[key]=e.target.value; save(); applyColors(); };
+    inp.onchange=()=>renderColorUI();
+    cust.appendChild(inp); box.appendChild(cust);
+  }
+  function renderColorUI(){ buildSwatches("swAr","ar"); buildSwatches("swAccent","accent"); buildSwatches("swBg","bg"); }
 
   // ---------- Установка PWA ----------
   let deferredPrompt=null;
@@ -625,13 +683,13 @@
   // ====================================================================
   //  НАВИГАЦИЯ
   // ====================================================================
-  function showQuiz(){ $("home").classList.add("hidden"); $("quiz").classList.remove("hidden"); $("quizBar").classList.remove("hidden"); $("btnHome").classList.remove("hidden"); sessionDone=0;sessionTotal=0; newQuestion(); }
-  function showHome(){ $("quiz").classList.add("hidden"); $("quizBar").classList.add("hidden"); $("btnHome").classList.add("hidden"); $("home").classList.remove("hidden"); player.pause(); updateSelCount(); }
+  function showQuiz(){ $("home").classList.add("hidden"); $("quiz").classList.remove("hidden"); $("quizBar").classList.remove("hidden"); $("btnBack").classList.remove("hidden"); sessionDone=0;sessionTotal=0; newQuestion(); }
+  function showHome(){ $("quiz").classList.add("hidden"); $("quizBar").classList.add("hidden"); $("btnBack").classList.add("hidden"); $("home").classList.remove("hidden"); player.pause(); updateSelCount(); }
   $("btnStart").onclick=()=>{ if(!activeGset().size){toast("Выбери хотя бы что-то для тренировки");return;} showQuiz(); };
-  $("btnHome").onclick=showHome;
+  $("btnBack").onclick=showHome;
 
   // ---------- старт ----------
-  applyTheme(); renderSelector(); loadCached().then(renderSelector);
+  applyTheme(); renderColorUI(); renderSelector(); loadCached().then(renderSelector);
 })();
 </script>
 <script>
